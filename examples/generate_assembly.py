@@ -1,4 +1,3 @@
-from rvvsuite.rtg import parse_config_file
 from rvvsuite import rtg
 from rvvsuite import asm
 import os
@@ -6,7 +5,7 @@ import os
 CONFIG_FILE = 'configs.json'
 OUTPUT_DIR = 'output'
 
-configs = parse_config_file(CONFIG_FILE)
+configs = rtg.parse_config_file(CONFIG_FILE)
 
 num_of_test = configs['num_of_tests']
 test_prefix = configs['test_prefix']
