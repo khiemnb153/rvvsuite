@@ -1,0 +1,164 @@
+Vector Single-Width Integer Add and Subtract
+
+# Integer adds.
+vadd.vv vd, vs2, vs1, vm # Vector-vector
+vadd.vx vd, vs2, rs1, vm # vector-scalar
+vadd.vi vd, vs2, imm, vm # vector-immediate
+
+# Integer subtract
+vsub.vv vd, vs2, vs1, vm # Vector-vector
+vsub.vx vd, vs2, rs1, vm # vector-scalar
+
+# Integer reverse subtract
+vrsub.vx vd, vs2, rs1, vm # vd[i] = x[rs1] - vs2[i]
+vrsub.vi vd, vs2, imm, vm # vd[i] = imm - vs2[i]
+
+===============================================================
+
+Vector Bitwise Logical Instructions
+
+# Bitwise logical operations.
+vand.vv vd, vs2, vs1, vm # Vector-vector
+vand.vx vd, vs2, rs1, vm # vector-scalar
+vand.vi vd, vs2, imm, vm # vector-immediate
+
+vor.vv vd, vs2, vs1, vm # Vector-vector
+vor.vx vd, vs2, rs1, vm # vector-scalar
+vor.vi vd, vs2, imm, vm # vector-immediate
+
+vxor.vv vd, vs2, vs1, vm # Vector-vector
+vxor.vx vd, vs2, rs1, vm # vector-scalar
+vxor.vi vd, vs2, imm, vm # vector-immediate
+
+===============================================================
+
+Vector Single-Width Shift Instructions
+
+vsll.vv vd, vs2, vs1, vm # Vector-vector
+vsll.vx vd, vs2, rs1, vm # vector-scalar
+vsll.vi vd, vs2, uimm, vm # vector-immediate
+
+vsrl.vv vd, vs2, vs1, vm # Vector-vector
+vsrl.vx vd, vs2, rs1, vm # vector-scalar
+vsrl.vi vd, vs2, uimm, vm # vector-immediate
+
+vsra.vv vd, vs2, vs1, vm # Vector-vector
+vsra.vx vd, vs2, rs1, vm # vector-scalar
+vsra.vi vd, vs2, uimm, vm # vector-immediate
+
+===============================================================
+
+Vector Integer Compare Instructions
+
+# Set if equal
+vmseq.vv vd, vs2, vs1, vm # Vector-vector
+vmseq.vx vd, vs2, rs1, vm # vector-scalar
+vmseq.vi vd, vs2, imm, vm # vector-immediate
+
+# Set if not equal
+vmsne.vv vd, vs2, vs1, vm # Vector-vector
+vmsne.vx vd, vs2, rs1, vm # vector-scalar
+vmsne.vi vd, vs2, imm, vm # vector-immediate
+
+# Set if less than, unsigned
+vmsltu.vv vd, vs2, vs1, vm # Vector-vector
+vmsltu.vx vd, vs2, rs1, vm # Vector-scalar
+
+# Set if less than, signed
+vmslt.vv vd, vs2, vs1, vm # Vector-vector
+vmslt.vx vd, vs2, rs1, vm # vector-scalar
+
+# Set if less than or equal, unsigned
+vmsleu.vv vd, vs2, vs1, vm # Vector-vector
+vmsleu.vx vd, vs2, rs1, vm # vector-scalar
+vmsleu.vi vd, vs2, imm, vm # Vector-immediate
+
+# Set if less than or equal, signed
+vmsle.vv vd, vs2, vs1, vm # Vector-vector
+vmsle.vx vd, vs2, rs1, vm # vector-scalar
+vmsle.vi vd, vs2, imm, vm # vector-immediate
+
+# Set if greater than, unsigned
+vmsgtu.vx vd, vs2, rs1, vm # Vector-scalar
+vmsgtu.vi vd, vs2, imm, vm # Vector-immediate
+
+# Set if greater than, signed
+vmsgt.vx vd, vs2, rs1, vm # Vector-scalar
+vmsgt.vi vd, vs2, imm, vm # Vector-immediate
+===============================================================
+
+Vector Integer Min/Max Instructions
+
+# Unsigned minimum
+vminu.vv vd, vs2, vs1, vm # Vector-vector
+vminu.vx vd, vs2, rs1, vm # vector-scalar
+
+# Signed minimum
+vmin.vv vd, vs2, vs1, vm # Vector-vector
+vmin.vx vd, vs2, rs1, vm # vector-scalar
+
+# Unsigned maximum
+vmaxu.vv vd, vs2, vs1, vm # Vector-vector
+vmaxu.vx vd, vs2, rs1, vm # vector-scalar
+
+# Signed maximum
+vmax.vv vd, vs2, vs1, vm # Vector-vector
+vmax.vx vd, vs2, rs1, vm # vector-scalar
+
+===============================================================
+
+Vector Integer Merge Instructions
+
+vmerge.vvm vd, vs2, vs1, v0.t # vd[i] = v0.mask[i] ? vs1[i] : vs2[i]
+vmerge.vxm vd, vs2, rs1, v0.t # vd[i] = v0.mask[i] ? x[rs1] : vs2[i]
+vmerge.vim vd, vs2, imm, v0.t # vd[i] = v0.mask[i] ? imm : vs2[i]
+
+===============================================================
+
+Vector Integer Move Instructions
+
+vmv.v.v vd, vs1 # vd[i] = vs1[i]
+vmv.v.x vd, rs1 # vd[i] = x[rs1]
+vmv.v.i vd, imm # vd[i] = imm
+
+===============================================================
+
+Vector unit-stride loads and stores
+
+vle8.v vd, (rs1), vm # 8-bit unit-stride load
+vle16.v vd, (rs1), vm # 16-bit unit-stride load
+vle32.v vd, (rs1), vm # 32-bit unit-stride load
+vle64.v vd, (rs1), vm # 64-bit unit-stride load
+
+vse8.v vs3, (rs1), vm # 8-bit unit-stride store
+vse16.v vs3, (rs1), vm # 16-bit unit-stride store
+vse32.v vs3, (rs1), vm # 32-bit unit-stride store
+vse64.v vs3, (rs1), vm # 64-bit unit-stride store
+
+===============================================================
+
+Vector strided loads and stores
+
+vlse8.v vd, (rs1), rs2, vm # 8-bit strided load
+vlse16.v vd, (rs1), rs2, vm # 16-bit strided load
+vlse32.v vd, (rs1), rs2, vm # 32-bit strided load
+vlse64.v vd, (rs1), rs2, vm # 64-bit strided load
+
+vsse8.v vs3, (rs1), rs2, vm # 8-bit strided store
+vsse16.v vs3, (rs1), rs2, vm # 16-bit strided store
+vsse32.v vs3, (rs1), rs2, vm # 32-bit strided store
+vsse64.v vs3, (rs1), rs2, vm # 64-bit strided store
+
+===============================================================
+
+Vector indexed loads and stores
+
+vluxei8.v vd, (rs1), vs2, vm # unordered 8-bit indexed load of SEW data
+vluxei16.v vd, (rs1), vs2, vm # unordered 16-bit indexed load of SEW data
+vluxei32.v vd, (rs1), vs2, vm # unordered 32-bit indexed load of SEW data
+vluxei64.v vd, (rs1), vs2, vm # unordered 64-bit indexed load of SEW data
+
+vsuxei8.v vs3, (rs1), vs2, vm # unordered 8-bit indexed store of SEW data
+vsuxei16.v vs3, (rs1), vs2, vm # unordered 16-bit indexed store of SEW data
+vsuxei32.v vs3, (rs1), vs2, vm # unordered 32-bit indexed store of SEW data
+vsuxei64.v vs3, (rs1), vs2, vm # unordered 64-bit indexed store of SEW data
