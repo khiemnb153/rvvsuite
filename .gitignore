@@ -3,3 +3,4 @@ output*
 draft*
 dist*
 *.egg-info
+test*

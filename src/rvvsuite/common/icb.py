@@ -96,8 +96,15 @@ class icb: # int-coded-binary
     
 
     def __sra__(self, other: 'icb') -> 'icb':
-        temp = self >> other
-        return temp.__sext__(self.width)
+
+        sign = (self.repr >> (self.width - 1)) & 1
+        shamt = other.repr & 31
+
+        sign_ext_part = ((sign << shamt) - 1) << (self.width - shamt)
+        
+        temp = self.__srl__(other)
+
+        return icb(temp.repr | sign_ext_part, temp.width) 
     
 
     def __seq__(self, other: 'icb') -> 'icb':

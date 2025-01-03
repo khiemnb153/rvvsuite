@@ -8,9 +8,10 @@ A set of tools for developing RISC-V Vector IP includes Random Test Generator (R
 
 ## Changelog
 
-| Version | Description     | Owner                                              |
-| ------- | --------------- | -------------------------------------------------- |
-| 0.0.1   | Initial version | [Nguyen Binh Khiem](https://github.com/khiemnb153) |
+| Version | Description             | Owner                                              |
+| ------- | ----------------------- | -------------------------------------------------- |
+| 0.0.1   | Initial version         | [Nguyen Binh Khiem](https://github.com/khiemnb153) |
+| 0.0.2   | Fix SRA operator of ICB | [Nguyen Binh Khiem](https://github.com/khiemnb153) |
 
 ## Supported features
 
