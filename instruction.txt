@@ -1,0 +1,6 @@
+Build
+    - Modify version in setup.py
+    - Write changelog to README.md
+    - python -m build
+Publish
+    - python -m twine upload dist/*

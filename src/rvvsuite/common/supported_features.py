@@ -88,3 +88,5 @@ GROUP_OF_OPCODES = {
     0b0110111: 'u_type',
     0b0010011: 'i_type'
 }
+
+FUNCT6_TO_INST_MAP = {v['funct6']: k for k, v in VECTOR_INSTS.items() if 'funct6' in v}

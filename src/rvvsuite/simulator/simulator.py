@@ -1,6 +1,6 @@
 from ..common.icb import icb
 from ..common.vector import vector
-from ..common.supported_features import GROUP_OF_OPCODES
+from ..common.supported_features import GROUP_OF_OPCODES, FUNCT6_TO_INST_MAP
 
 
 DEFAULT_CONFIGS = {
@@ -8,21 +8,24 @@ DEFAULT_CONFIGS = {
     'addr_width': 12,
     'elen': 32,
     'vlen': 128,
+    'xlen': 32
 }
 
 
 class simulator:
-    def __init__(self, imem: dict = {}, dmem: dict = {}, configs: dict = DEFAULT_CONFIGS) -> None:
+    def __init__(self, imem: dict = {}, dmem: dict = {}, configs: dict = DEFAULT_CONFIGS, debug_mode: bool = False) -> None:
         self.imem = imem
         self.dmem = dmem
         self.configs = configs
         self.x_reg_file = {key: 0 for key in range(32)}
         self.v_reg_file = {key: 0 for key in range(32)}
         self.pc = 0
+        self.debug_mode = debug_mode
 
 
     def __apply_changes(self, changes: dict) -> None:
-        self.pc = changes['pc']
+        if 'pc' in changes:
+            self.pc = changes['pc']
         
         if 'x_reg_file' in changes:
             for rd, value in changes['x_reg_file'].items():
@@ -40,14 +43,17 @@ class simulator:
     def run(self):
         vlen = self.configs['vlen']
         elen = self.configs['elen']
+        xlen = self.configs['xlen']
         addr_width = self.configs['addr_width']
-        dmem_size = 2 ** addr_width
+        dmem_size = 1 << addr_width
         pc_width = self.configs['pc_width']
-        imem_size = 2 ** pc_width
+        imem_size = 1 << pc_width
 
-        changlog = [{ 'pc': 0}]
+        changlog = []
 
         while True:
+            changes = {} # Init changes dict for each instruction
+
             if  self.pc >= imem_size: # End of IMEM
                 break
             
@@ -64,31 +70,45 @@ class simulator:
             if opcode == 0b1010111: # v_arith
                 opcode, vd, funct3, vs1_rs1_imm, vs2, vm, funct6 = simulator.__decode_inst_v_arith(inst)
 
-                print(f'v_arith: {opcode=:7b} {vd=} {funct3=:3b} {vs1_rs1_imm=} {vs2=} {vm=:1b} {funct6=:6b}')
+                op = FUNCT6_TO_INST_MAP[funct6]
                 
                 vect2 = vector(self.v_reg_file[vs2], elen=elen, vlen=vlen)
                 if funct3 == 0b000: # OPIVV
                     vect1 = vector(self.v_reg_file[vs1_rs1_imm], elen=elen, vlen=vlen)
+
+                    format = 'v.v' if op == 'vmv' else 'vvm' if op == 'vmerge' else 'vv'
+                    self.__debug_log(f"{op}.{format} v{vd}, {f'v{vs2}, ' if op != 'vmv' else ''}v{vs1_rs1_imm}{', v0.t' if not vm else ''}")
+                    
                 elif funct3 == 0b100: # OPIVX
                     vect1 = vector(vect=[icb(self.x_reg_file[vs1_rs1_imm], width=elen)] * (vlen // elen), elen=elen, vlen=vlen)
+
+                    format = 'v.x' if op == 'vmv' else 'vxm' if op == 'vmerge' else 'vx'
+                    self.__debug_log(f"{op}.{format} v{vd}, {f'v{vs2}, ' if op != 'vmv' else ''}x{vs1_rs1_imm}{', v0.t' if not vm else ''}")
+
                 elif funct3 == 0b011: # OPIVI
                     vect1 = vector(vect=[icb(vs1_rs1_imm, width=5)] * (vlen // elen), elen=elen, vlen=vlen)
+
+                    format = 'v.i' if op == 'vmv' else 'vim' if op == 'vmerge' else 'vi'
+                    self.__debug_log(f"{op}.{format} v{vd}, {f'v{vs2}, ' if op != 'vmv' else ''}{hex(vs1_rs1_imm)}{', v0.t' if not vm else ''}")
+
                 else:
                     raise ValueError(f'Unsupported funct3: 0b{funct3:3b}.')
                 
                 masks = self.__get_masks(vm)
 
                 result = self.__vop(funct6, vect2, vect1, masks)
+                
+                self.__debug_log(f"Source: {f'v{vs2}':7} = {' '.join([elm.to_hex() for elm in vect2.elms])}", indent=2)
+                self.__debug_log(f"Source: {f'v{vs1_rs1_imm}' if format in ['vv', 'vvm', 'v.v'] else f'x{vs1_rs1_imm}' if format in ['vx', 'vxm', 'v.x'] else 'imm5':7} = {' '.join([elm.to_hex() for elm in vect1.elms])}", indent=2)
+                self.__debug_log(f"Masks : {' ':7} = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
+                self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(result, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
 
-                changes = {
-                    'pc': self.pc + 4,
-                    'v_reg_file': {vd: result}
-                }
+                changes['pc'] = self.pc + 4
+                if self.v_reg_file[vd] != result:
+                    changes['v_reg_file'] = {vd: result}
 
             elif opcode == 0b0000111: # v_load
                 opcode, vd, width_code, rs1, lumop_rs2_vs2, vm, mop, mew, nf = simulator.__decode_inst_v_load(inst)
-
-                print(f'v_load {opcode=:7b} {vd=} {width_code=:3b} {rs1=} {lumop_rs2_vs2=} {vm=:1b} {mop=:2b}')
 
                 masks = self.__get_masks(vm)
                 
@@ -105,27 +125,41 @@ class simulator:
 
                 if mop == 0b00: # unit-stride
                     read_vect = self.__vload_unit_stride(vd, width, base_addr, masks)
+
+                    self.__debug_log(f'vle{width}.v v{vd}, (x{rs1}){', v0.t' if not vm else ''}')
+                    self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
+                    self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
+                    self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(read_vect, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
                 
                 elif mop == 0b01: # indexed-unordered
                     index_vect = vector(self.v_reg_file[lumop_rs2_vs2], elen=elen, vlen=vlen)
                     read_vect = self.__vload_indexed_unordered(vd, width, base_addr, index_vect, masks)
 
+                    self.__debug_log(f'vluxei{width}.v v{vd}, (x{rs1}), v{lumop_rs2_vs2}{', v0.t' if not vm else ''}')
+                    self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
+                    self.__debug_log(f'Source: indexes = {' '.join([elm.to_hex() for elm in index_vect.elms])}', indent=2)
+                    self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
+                    self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(read_vect, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
+                    
                 elif mop == 0b10: # strided
                     stride = self.x_reg_file[lumop_rs2_vs2]
                     read_vect = self.__vload_strided(vd, width, base_addr, stride, masks)
 
+                    self.__debug_log(f'vlse{width}.v v{vd}, (x{rs1}), x{lumop_rs2_vs2}{', v0.t' if not vm else ''}')
+                    self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
+                    self.__debug_log(f'Source: stride  = {icb(stride, xlen).to_hex()}', indent=2)
+                    self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
+                    self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(read_vect, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
+                    
                 else:
                     raise ValueError(f'Unsupported mop: 0b{mop:2b}.')
                 
-                changes = {
-                    'pc': self.pc + 4,
-                    'v_reg_file': {vd: read_vect}
-                }
+                changes['pc'] = self.pc + 4
+                if self.v_reg_file[vd] != read_vect:
+                    changes['v_reg_file'] = {vd: read_vect}
 
             elif opcode == 0b0100111: # v_store
                 opcode, vs3, width_code, rs1, sumop_rs2_vs2, vm, mop, mew, nf = simulator.__decode_inst_v_store(inst)
-
-                print(f'v_store {opcode=:7b} {vs3=} {width_code=:3b} {rs1=} {sumop_rs2_vs2=} {vm=:1b} {mop=:2b}')
                 
                 masks = self.__get_masks(vm)
                 
@@ -143,35 +177,53 @@ class simulator:
 
                 if mop == 0b00: # unit-stride
                     dmem_changes = self.__vstore_unit_stride(write_vect, width, base_addr, masks)
+
+                    self.__debug_log(f'vse{width}.v v{vs3}, (x{rs1}){', v0.t' if not vm else ''}')
+                    self.__debug_log(f"Source: {f'v{vs3}':7} = {' '.join([elm.to_hex() for elm in write_vect.elms])}", indent=2)
+                    self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
+                    self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
+                    self.__debug_log(f"Result: dmem    = {', '.join([f'[{icb(addr, addr_width).to_hex()}]: {icb(byte, 8).to_hex()}' for addr, byte in dmem_changes.items()])}", indent=2)
                 
                 elif mop == 0b01: # indexed-unordered
                     index_vect = vector(self.v_reg_file[sumop_rs2_vs2], elen=elen, vlen=vlen)
                     dmem_changes = self.__vstore_indexed_unordered(write_vect, width, base_addr, index_vect, masks)
 
+                    self.__debug_log(f'vsuxei{width}.v v{vs3}, (x{rs1}), v{lumop_rs2_vs2}{', v0.t' if not vm else ''}')
+                    self.__debug_log(f"Source: {f'v{vs3}':7} = {' '.join([elm.to_hex() for elm in write_vect.elms])}", indent=2)
+                    self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
+                    self.__debug_log(f'Source: indexes = {' '.join([elm.to_hex() for elm in index_vect.elms])}', indent=2)
+                    self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
+                    self.__debug_log(f"Result: dmem    = {', '.join([f'[{icb(addr, addr_width).to_hex()}]: {icb(byte, 8).to_hex()}' for addr, byte in dmem_changes.items()])}", indent=2)
+                
                 elif mop == 0b10: # strided
                     stride = self.x_reg_file[sumop_rs2_vs2]
                     dmem_changes = self.__vstore_strided(write_vect, width, base_addr, stride, masks)
 
+                    self.__debug_log(f'vsse{width}.v v{vs3}, (x{rs1}), x{lumop_rs2_vs2}{', v0.t' if not vm else ''}')
+                    self.__debug_log(f"Source: {f'v{vs3}':7} = {' '.join([elm.to_hex() for elm in write_vect.elms])}", indent=2)
+                    self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
+                    self.__debug_log(f'Source: stride  = {icb(stride, xlen).to_hex()}', indent=2)
+                    self.__debug_log(f"Result: dmem    = {', '.join([f'[{icb(addr, addr_width).to_hex()}]: {icb(byte, 8).to_hex()}' for addr, byte in dmem_changes.items()])}", indent=2)
+
                 else:
                     raise ValueError(f'Unsupported mop: 0b{mop:2b}.')
-                
-                changes = {
-                    'pc': self.pc + 4,
-                    'dmem': dmem_changes
-                }
+
+                changes['pc'] = self.pc + 4
+                changes['dmem'] = {addr: byte for addr, byte in dmem_changes.items() if self.dmem.get(addr, 0) != byte}
 
             elif opcode in GROUP_OF_OPCODES:
                 if GROUP_OF_OPCODES[opcode] == 'u_type':
                     rd = icb.get_bits(inst, start=7, width=5)
                     imm20 = icb.get_bits(inst, start=12, width=20)
 
-                    print(f'u_type: {opcode=:7b} {rd=} {imm20=:b}')
-
                     if opcode == 0b0110111: #lui
-                        changes = {
-                            'pc': self.pc + 4,
-                            'x_reg_file': {rd: imm20 << 12}
-                        }
+                        result = imm20 << 12
+                        changes['pc'] = self.pc + 4
+                        if self.x_reg_file[rd] != result:
+                            changes['x_reg_file'] = {rd: result}
+
+                        self.__debug_log(f'lui x{rd}, {hex(imm20)}')
+                        self.__debug_log(f"Result: {f"x{rd}":7} = {icb(result, xlen).to_hex()}", indent=2)
 
                     elif opcode == 0b0010111: # auipc
                         raise ValueError(f'Unsupported opcode: 0b{opcode:7b} (Not implemented yet).')
@@ -182,15 +234,20 @@ class simulator:
                     rs1 = icb.get_bits(inst, start=15, width=5)
                     imm12 = icb.get_bits(inst, start=20, width=12)
 
-                    print(f'i_type: {opcode=:7b} {funct3:3b} {rd=} {rs1=} {imm12=:b}')
-
                     if funct3 == 0b000: # addi
-                        opnd2 = icb(self.x_reg_file[rs1], 32)
+                        opnd2 = icb(self.x_reg_file[rs1], xlen)
                         opnd1 = icb(imm12, 12)
-                        changes = {
-                            'pc': self.pc + 4,
-                            'x_reg_file': {rd: (opnd2 + opnd1).repr}
-                        }
+
+                        result = (opnd2 + opnd1).repr
+
+                        changes['pc'] = self.pc + 4
+                        if self.x_reg_file[rd] != result:
+                            changes['x_reg_file'] = {rd: result}
+
+                        self.__debug_log(f'addi x{rd}, x{rs1}, {hex(imm12)}')
+                        self.__debug_log(f"Source: {f"x{rs1}":7} = {opnd2.to_hex()}", indent=2)
+                        self.__debug_log(f"Source: {"imm12":7} = {opnd1.__sext__(xlen).to_hex()}", indent=2)
+                        self.__debug_log(f"Result: {f"x{rd}":7} = {icb(result, xlen).to_hex()}", indent=2)
                     else:
                         raise ValueError(f'Unsupported funct3: 0b{funct3:3b} (Not implemented yet).')
 
@@ -269,7 +326,7 @@ class simulator:
         read_vect = self.v_reg_file[vd]
 
         for i in range(num_of_elms):
-            addr = base_addr + i * (width // 8)
+            addr = (base_addr + i * (width // 8)) % dmem_size # Ignore higher address bits
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
@@ -292,7 +349,7 @@ class simulator:
         read_vect = self.v_reg_file[vd]
 
         for i in range(num_of_elms):
-            addr = base_addr + index_vect.get_element(i).repr
+            addr = (base_addr + index_vect.get_element(i).repr) % dmem_size # Ignore higher address bits
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
@@ -315,7 +372,7 @@ class simulator:
         read_vect = self.v_reg_file[vd]
 
         for i in range(num_of_elms):
-            addr = base_addr + i * stride
+            addr = (base_addr + i * stride) % dmem_size # Ignore higher address bits
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
@@ -337,15 +394,15 @@ class simulator:
 
         dmem_changes = {}
         for i in range(num_of_elms):
-            addr = base_addr + i * (width // 8)
+            addr = (base_addr + i * (width // 8)) % dmem_size # Ignore higher address bits
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
-            if masks[i] == 1:
+            if masks[i]:
                 write_elm = write_vect.get_element(i).repr
                 for j in range(width // 8):
-                    byte = icb.get_bits(write_elm, start=(addr + j), width=8)
-                    dmem_changes[addr] = byte
+                    byte = icb.get_bits(write_elm, start=8 * j, width=8)
+                    dmem_changes[addr + j] = byte
 
         return dmem_changes
     
@@ -358,15 +415,15 @@ class simulator:
 
         dmem_changes = {}
         for i in range(num_of_elms):
-            addr = base_addr + index_vect.get_element(i).repr
+            addr = (base_addr + index_vect.get_element(i).repr) % dmem_size # Ignore higher address bits
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
             if masks[i] == 1:
                 write_elm = write_vect.get_element(i).repr
                 for j in range(width // 8):
-                    byte = icb.get_bits(write_elm, start=(addr + j), width=8)
-                    dmem_changes[addr] = byte
+                    byte = icb.get_bits(write_elm, start=8 * j, width=8)
+                    dmem_changes[addr + j] = byte
 
         return dmem_changes
     
@@ -379,15 +436,15 @@ class simulator:
 
         dmem_changes = {}
         for i in range(num_of_elms):
-            addr = base_addr + i * stride
+            addr = (base_addr + i * stride) % dmem_size # Ignore higher address bits
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
             if masks[i] == 1:
                 write_elm = write_vect.get_element(i).repr
                 for j in range(width // 8):
-                    byte = icb.get_bits(write_elm, start=(addr + j), width=8)
-                    dmem_changes[addr] = byte
+                    byte = icb.get_bits(write_elm, start=8 * j, width=8)
+                    dmem_changes[addr + j] = byte
 
         return dmem_changes
 
@@ -404,6 +461,11 @@ class simulator:
             for i in range(vlen // elen)
         ]
     
+    
+    def __debug_log(self, msg: str, indent: int = 0) -> None:
+        if self.debug_mode:
+            print(' ' * indent + msg)
+
 
     @staticmethod
     def __decode_inst_v_arith(inst: int) -> tuple:

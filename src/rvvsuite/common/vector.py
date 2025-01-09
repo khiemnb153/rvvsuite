@@ -4,7 +4,6 @@ from .supported_features import ELEN, VLEN
 class vector:
     def __init__(self, vreg: int = 0, vect: list[icb] = None, elen: int = ELEN, vlen: int = VLEN) -> None:
         if vect != None:
-            print(f'{len(vect)=}, {vlen // elen}')
             if len(vect) != vlen // elen:
                 raise ValueError('Mismatch in size between source vector and configs (elen, vlen parameters)')
             
