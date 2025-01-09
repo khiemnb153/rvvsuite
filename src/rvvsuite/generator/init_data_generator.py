@@ -37,8 +37,6 @@ def init_data(vregs2init, xregs2init, vms2init, configs):
     text_section = []
 
     addr = 0
-
-    print(DATA_TYPES, configs['data_type_weights'])
     
     for vreg in vregs2init:
         data_type = choices(DATA_TYPES, configs['data_type_weights'])[0]
@@ -91,7 +89,5 @@ def init_data(vregs2init, xregs2init, vms2init, configs):
         }
         data_section[vm_label] = data_def
         addr += TYPE_WIDTHS[data_type] * len(data_items)
-
-    print(data_section)
 
     return data_section, text_section

@@ -63,8 +63,6 @@ def icb_of_v_load(mop, width, vd, rs1, rs2, vs2, vm, lumop=0b00000, nf=0b00, mew
     elif mop == 0b10:
         bit_24_20 = rs2
 
-    print(f'{width:b=}')
-
     icb = 0b0000111 # opcode
     icb |= (vd << 7)
     icb |= (width << 12)
@@ -99,8 +97,6 @@ def icb_of_i_type(opcode, funct3, rd, rs1, imm12):
 def translate_text(text):
     imem = ''
     for inst in text:
-        print(inst)
-
         inst_params = SUPPORTED_INSTS[inst['op']]
         group = inst_params['group']
         if group.startswith('v_arith'):

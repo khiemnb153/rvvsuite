@@ -98,11 +98,10 @@ class icb: # int-coded-binary
     
 
     def __sra__(self, other: 'icb') -> 'icb':
-
         sign = (self.repr >> (self.width - 1)) & 1
         shamt = other.repr & 31
 
-        sign_ext_part = ((sign << shamt) - 1) << (self.width - shamt)
+        sign_ext_part = (((sign << shamt) - 1) << (self.width - shamt)) if sign else 0
         
         temp = self.__srl__(other)
 
@@ -131,7 +130,7 @@ class icb: # int-coded-binary
         if self.width < other.width:
             raise ValueError(f"The width of the first operand ({self.width}) must be greater than or equal the width of the second operand ({other.width}).")
         
-        ext_other = other.__sext__(self.width)
+        ext_other = other.__zext__(self.width)
         
         return icb(1 if self.repr < ext_other.repr else 0, self.width)
 
@@ -156,7 +155,7 @@ class icb: # int-coded-binary
         if self.width < other.width:
             raise ValueError(f"The width of the first operand ({self.width}) must be greater than or equal the width of the second operand ({other.width}).")
         
-        ext_other = other.__sext__(self.width)
+        ext_other = other.__zext__(self.width)
         
         return icb(1 if self.repr <= ext_other.repr else 0, self.width)
 
@@ -181,7 +180,7 @@ class icb: # int-coded-binary
         if self.width < other.width:
             raise ValueError(f"The width of the first operand ({self.width}) must be greater than or equal the width of the second operand ({other.width}).")
         
-        ext_other = other.__sext__(self.width)
+        ext_other = other.__zext__(self.width)
         
         return icb(1 if self.repr > ext_other.repr else 0, self.width)
     
@@ -206,7 +205,7 @@ class icb: # int-coded-binary
         if self.width < other.width:
             raise ValueError(f"The width of the first operand ({self.width}) must be greater than or equal the width of the second operand ({other.width}).")
         
-        ext_other = other.__sext__(self.width)
+        ext_other = other.__zext__(self.width)
 
         return icb(self.repr if self.repr < ext_other.repr else ext_other.repr, self.width)
     
@@ -231,7 +230,7 @@ class icb: # int-coded-binary
         if self.width < other.width:
             raise ValueError(f"The width of the first operand ({self.width}) must be greater than or equal the width of the second operand ({other.width}).")
         
-        ext_other = other.__sext__(self.width)
+        ext_other = other.__zext__(self.width)
 
         return icb(self.repr if self.repr > ext_other.repr else ext_other.repr, self.width)
     

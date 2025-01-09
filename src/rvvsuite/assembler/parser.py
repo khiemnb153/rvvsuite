@@ -172,7 +172,6 @@ def parse_text(text_section, data):
 
             # Check valid params
             cuptured_params = inst_match.groupdict()
-            print(inst, op, cuptured_params)
             inst_params = {'op': op}
             if 'format' in cuptured_params and not cuptured_params['format'] == None:
                 inst_params['format'] = cuptured_params['format']

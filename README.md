@@ -15,6 +15,11 @@ A set of tools for developing RISC-V Vector IP includes Random Test Generator (R
 
 ## Changelog
 
+### Version 0.0.7 (by [Nguyen Binh Khiem](https://github.com/khiemnb153))
+
+- **[Fixed]** `Simulator` Fixed `sra` operation.
+- **[Fixed]** `Simulator` Fixed unsigned operations.
+
 ### Version 0.0.6 (by [Nguyen Binh Khiem](https://github.com/khiemnb153))
 
 - **[Added]** `Simulator` Enabled write debug log to file.
