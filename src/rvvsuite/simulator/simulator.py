@@ -13,7 +13,7 @@ DEFAULT_CONFIGS = {
 
 
 class simulator:
-    def __init__(self, imem: dict = {}, dmem: dict = {}, configs: dict = DEFAULT_CONFIGS, debug_mode: bool = False) -> None:
+    def __init__(self, imem: dict = {}, dmem: dict = {}, configs: dict = DEFAULT_CONFIGS, debug_mode: bool = False, log: str = '') -> None:
         self.imem = imem
         self.dmem = dmem
         self.configs = configs
@@ -21,6 +21,8 @@ class simulator:
         self.v_reg_file = {key: 0 for key in range(32)}
         self.pc = 0
         self.debug_mode = debug_mode
+        if debug_mode:
+            self.log = log
 
 
     def __apply_changes(self, changes: dict) -> None:
@@ -48,6 +50,10 @@ class simulator:
         dmem_size = 1 << addr_width
         pc_width = self.configs['pc_width']
         imem_size = 1 << pc_width
+
+        if self.debug_mode and self.log:
+            with open(self.log, 'w') as file:
+                file.write('')  # Clear if log exists
 
         changlog = []
 
@@ -470,7 +476,11 @@ class simulator:
     
     def __debug_log(self, msg: str, indent: int = 0) -> None:
         if self.debug_mode:
-            print(' ' * indent + msg)
+            if self.log:
+                with open(self.log, 'a') as file:
+                    print(' ' * indent + msg, file=file)
+            else:
+                print(' ' * indent + msg)
 
 
     @staticmethod

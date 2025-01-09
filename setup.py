@@ -5,7 +5,7 @@ with open("README.md", "r", encoding = "utf-8") as fh:
 
 setuptools.setup(
     name = "rvvsuite",
-    version = "0.0.5",
+    version = "0.0.6",
     author = "Nguyen Binh Khiem",
     author_email = "khiemnb153@gmail.com",
     description = "A set of tools for developing RISC-V Vector IP includes Random Test Generator (RTG), Assembler, and Simulator",

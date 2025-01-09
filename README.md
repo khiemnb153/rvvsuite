@@ -5,6 +5,7 @@ A set of tools for developing RISC-V Vector IP includes Random Test Generator (R
 > **This project is not yet complete**.
 >
 > However, since my teammate needs it for testing the RTL design, I have decided to publish it anyway.
+> This package is tested on product environment. LMAO.
 
 ## Supported features
 
@@ -13,6 +14,12 @@ A set of tools for developing RISC-V Vector IP includes Random Test Generator (R
 ## APIs
 
 ## Changelog
+
+### Version 0.0.6 (by [Nguyen Binh Khiem](https://github.com/khiemnb153))
+
+- **[Added]** `Simulator` Enabled write debug log to file.
+- **[Fixed]** `Simulator` Fixed `vmsgt` operation.
+- **[Fixed]** `Simulator` Fixed `vsrub` operation.
 
 ### Version 0.0.5 (by [Nguyen Binh Khiem](https://github.com/khiemnb153))
 

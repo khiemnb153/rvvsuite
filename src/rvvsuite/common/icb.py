@@ -52,8 +52,10 @@ class icb: # int-coded-binary
             raise ValueError(f"The width of the first operand ({self.width}) must be greater than or equal the width of the second operand ({other.width}).")
         
         ext_other = other.__sext__(self.width)
-        
-        return icb(self.repr - ext_other.repr, self.width)
+        one_comp = ext_other.__xor__(icb((1 << ext_other.width) - 1, ext_other.width))
+        two_comp = one_comp.__add__(icb(1, one_comp.width))
+
+        return icb(self.repr + two_comp.repr, self.width)
     
 
     def __and__(self, other: 'icb') -> 'icb':
@@ -193,9 +195,9 @@ class icb: # int-coded-binary
         self_sign_bit = self.repr >> (self.width - 1)
         other_sign_bit = ext_other.repr >> (ext_other.width - 1)
         if self_sign_bit < other_sign_bit:
-            icb(1, self.width)
+            return icb(1, self.width)
         elif self_sign_bit > other_sign_bit:
-            icb(0, self.width)
+            return icb(0, self.width)
         else:
             return self.__sgtu__(ext_other)
         
