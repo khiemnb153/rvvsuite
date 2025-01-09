@@ -124,7 +124,6 @@ def replace_vm_change_placeholders(inst_sequence: list):
 
 
 def display_inst(inst):
-    print(inst)
     operator = inst['operator']
     if operator in VECTOR_INSTS:
         group = VECTOR_INSTS[operator]['group']
