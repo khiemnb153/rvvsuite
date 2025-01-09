@@ -14,6 +14,10 @@ A set of tools for developing RISC-V Vector IP includes Random Test Generator (R
 
 ## Changelog
 
+### Version 0.0.5 (by [Nguyen Binh Khiem](https://github.com/khiemnb153))
+
+- **[Fixed]** `Simulator` Fixed vector load operations.
+
 ### Version 0.0.4 (by [Nguyen Binh Khiem](https://github.com/khiemnb153))
 
 - **[Changed]** `Simulator` Modified how PC is logged.

@@ -330,12 +330,14 @@ class simulator:
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
-            elm_i = 0
             if masks[i] == 1:
+                elm_i = 0
                 for j in range(width // 8):
                     elm_i |= self.dmem.get(addr + j, 0) << (j * 8)
-
-            read_vect |= icb(elm_i, width).__sext__(elen).repr << (i * elen)
+            
+                clear_mask = ~((1 << elen) - 1 << (i * elen))
+                read_vect &= clear_mask # Clear old element before override
+                read_vect |= icb(elm_i, width).__sext__(elen).repr << (i * elen)
 
         return read_vect
     
@@ -353,12 +355,14 @@ class simulator:
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
-            elm_i = 0
             if masks[i] == 1:
+                elm_i = 0
                 for j in range(width // 8):
                     elm_i |= self.dmem.get(addr + j, 0) << (j * 8)
-
-            read_vect |= icb(elm_i, width).__sext__(elen).repr << (i * elen)
+            
+                clear_mask = ~((1 << elen) - 1 << (i * elen))
+                read_vect &= clear_mask # Clear old element before override
+                read_vect |= icb(elm_i, width).__sext__(elen).repr << (i * elen)
 
         return read_vect
     
@@ -376,12 +380,14 @@ class simulator:
             # if addr >= dmem_size: # TODO: Uncomment after constrain dmem access range
             #     raise ValueError(f"The address: {addr} is out of DMEM (DMEM size is {dmem_size})")
 
-            elm_i = 0
             if masks[i] == 1:
+                elm_i = 0
                 for j in range(width // 8):
                     elm_i |= self.dmem.get(addr + j, 0) << (j * 8)
-
-            read_vect |= icb(elm_i, width).__sext__(elen).repr << (i * elen)
+            
+                clear_mask = ~((1 << elen) - 1 << (i * elen))
+                read_vect &= clear_mask # Clear old element before override
+                read_vect |= icb(elm_i, width).__sext__(elen).repr << (i * elen)
 
         return read_vect
     
