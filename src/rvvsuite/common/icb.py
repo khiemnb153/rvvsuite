@@ -12,7 +12,7 @@ class icb: # int-coded-binary
             self.repr = icb._sign_mag_to_two_comp(value, width)
         self.width = width
 
-    
+  
     # zero-extend
     def __zext__(self, new_width: int) -> 'icb':
         if self.width > new_width:

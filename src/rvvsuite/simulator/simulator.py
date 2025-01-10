@@ -105,7 +105,7 @@ class simulator:
                 result = self.__vop(funct6, vect2, vect1, masks)
                 
                 self.__debug_log(f"Source: {f'v{vs2}':7} = {' '.join([elm.to_hex() for elm in vect2.elms])}", indent=2)
-                self.__debug_log(f"Source: {f'v{vs1_rs1_imm}' if format in ['vv', 'vvm', 'v.v'] else f'x{vs1_rs1_imm}' if format in ['vx', 'vxm', 'v.x'] else 'imm5':7} = {' '.join([elm.to_hex() for elm in vect1.elms])}", indent=2)
+                self.__debug_log(f"Source: {f'v{vs1_rs1_imm}' if format in ['vv', 'vvm', 'v.v'] else f'x{vs1_rs1_imm}' if format in ['vx', 'vxm', 'v.x'] else 'imm5':7} = {' '.join([f'{elm.to_hex():>{elen // 4 + 2}}' for elm in vect1.elms])}", indent=2)
                 self.__debug_log(f"Masks : {' ':7} = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
                 self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(result, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
 

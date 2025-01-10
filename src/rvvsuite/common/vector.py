@@ -7,7 +7,7 @@ class vector:
             if len(vect) != vlen // elen:
                 raise ValueError('Mismatch in size between source vector and configs (elen, vlen parameters)')
             
-            self.elms = [elm.__sext__(elen) for elm in vect]
+            self.elms = vect
         else:
             self.elms = vector.vectorize(vreg, elen, vlen)
         self.elen = elen

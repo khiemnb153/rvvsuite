@@ -19,6 +19,7 @@ A set of tools for developing RISC-V Vector IP includes Random Test Generator (R
 
 - **[Fixed]** `Simulator` Fixed `sra` operation.
 - **[Fixed]** `Simulator` Fixed unsigned operations.
+- **[Fixed]** `Simulator` Fixed vector initialization mismatch width.
 
 ### Version 0.0.6 (by [Nguyen Binh Khiem](https://github.com/khiemnb153))
 
