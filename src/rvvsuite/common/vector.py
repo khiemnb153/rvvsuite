@@ -337,7 +337,7 @@ class vector:
             raise ValueError('Mismatch in size between two vector')
 
         result_vect = [
-            other_elm if mask else self_elm
+            other_elm.__sext__(self.elen) if mask else self_elm
             for self_elm, other_elm, mask in zip(self.elms, other.elms, masks)
         ]
 

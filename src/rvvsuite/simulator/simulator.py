@@ -77,6 +77,11 @@ class simulator:
                 opcode, vd, funct3, vs1_rs1_imm, vs2, vm, funct6 = simulator.__decode_inst_v_arith(inst)
 
                 op = FUNCT6_TO_INST_MAP[funct6]
+                if op == 'vmerge' and vm == 1:
+                    op = 'vmv'
+                elif op == 'vmv' and vm == 0:
+                    op = 'vmerge'
+
                 
                 vect2 = vector(self.v_reg_file[vs2], elen=elen, vlen=vlen)
                 if funct3 == 0b000: # OPIVV
@@ -104,7 +109,7 @@ class simulator:
 
                 result = self.__vop(funct6, vect2, vect1, masks)
                 
-                self.__debug_log(f"Source: {f'v{vs2}':7} = {' '.join([elm.to_hex() for elm in vect2.elms])}", indent=2)
+                if op != 'vmv': self.__debug_log(f"Source: {f'v{vs2}':7} = {' '.join([elm.to_hex() for elm in vect2.elms])}", indent=2)
                 self.__debug_log(f"Source: {f'v{vs1_rs1_imm}' if format in ['vv', 'vvm', 'v.v'] else f'x{vs1_rs1_imm}' if format in ['vx', 'vxm', 'v.x'] else 'imm5':7} = {' '.join([f'{elm.to_hex():>{elen // 4 + 2}}' for elm in vect1.elms])}", indent=2)
                 self.__debug_log(f"Masks : {' ':7} = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
                 self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(result, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
@@ -316,7 +321,7 @@ class simulator:
         elif funct6 == 0b010111: # vmerge
             result_vect = vect2.__vmerge__(vect1, masks)
         elif funct6 == 0b010111: # vmv
-            result_vect = vect1
+            result_vect = [elm.__sext__(self.configs['elen']) for elm in vect1.elms]
         else:
             raise ValueError(f'Unsupported funct6: 0b{funct6:6b}.')
         
