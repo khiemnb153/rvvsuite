@@ -1,6 +1,6 @@
 from ..common.icb import icb
 from ..common.vector import vector
-from ..common.supported_features import GROUP_OF_OPCODES, FUNCT6_TO_INST_MAP
+from ..common.supported_features import GROUP_OF_OPCODES, FUNCT6_TO_INST_MAP, VECTOR_INSTS, SCALAR_INSTS
 
 
 DEFAULT_CONFIGS = {
@@ -57,6 +57,19 @@ class simulator:
 
         changlog = []
 
+        # Init stats
+        vector_inst_counters =  {
+            **{f"{inst}.{fmt}": 0 for inst, details in VECTOR_INSTS.items() for fmt in details.get('formats', [])},
+            **{f"{inst}{width}.v": 0 for inst, details in VECTOR_INSTS.items() for width in details.get('widths', [])}
+        }
+        scalar_inst_counters = {inst: 0 for inst in SCALAR_INSTS}
+        vector_read_counters = {v: 0 for v in range(32)}
+        vector_write_counters = {v: 0 for v in range(32)}
+        register_read_counters = {r: 0 for r in range(32)}
+        register_write_counters = {r: 0 for r in range(32)}
+        dmem_read_counters = {}
+        dmem_write_counters = {}
+
         while True:
             changes = {} # Init changes dict for each instruction
 
@@ -82,25 +95,35 @@ class simulator:
                 elif op == 'vmv' and vm == 0:
                     op = 'vmerge'
 
-                
+                vector_write_counters[vd] += 1 # Stat
+                vector_read_counters[vs2] += 1 # Stat
+
                 vect2 = vector(self.v_reg_file[vs2], elen=elen, vlen=vlen)
                 if funct3 == 0b000: # OPIVV
                     vect1 = vector(self.v_reg_file[vs1_rs1_imm], elen=elen, vlen=vlen)
 
                     format = 'v.v' if op == 'vmv' else 'vvm' if op == 'vmerge' else 'vv'
                     self.__debug_log(f"{op}.{format} v{vd}, {f'v{vs2}, ' if op != 'vmv' else ''}v{vs1_rs1_imm}{', v0.t' if not vm else ''}")
-                    
+
+                    vector_inst_counters[f'{op}.{format}'] += 1 # Stat
+                    vector_read_counters[vs1_rs1_imm] += 1 # Stat
+            
                 elif funct3 == 0b100: # OPIVX
                     vect1 = vector(vect=[icb(self.x_reg_file[vs1_rs1_imm], width=elen)] * (vlen // elen), elen=elen, vlen=vlen)
 
                     format = 'v.x' if op == 'vmv' else 'vxm' if op == 'vmerge' else 'vx'
                     self.__debug_log(f"{op}.{format} v{vd}, {f'v{vs2}, ' if op != 'vmv' else ''}x{vs1_rs1_imm}{', v0.t' if not vm else ''}")
 
+                    vector_inst_counters[f'{op}.{format}'] += 1 # Stat
+                    register_read_counters[vs1_rs1_imm] += 1 # Stat
+
                 elif funct3 == 0b011: # OPIVI
                     vect1 = vector(vect=[icb(vs1_rs1_imm, width=5)] * (vlen // elen), elen=elen, vlen=vlen)
 
                     format = 'v.i' if op == 'vmv' else 'vim' if op == 'vmerge' else 'vi'
                     self.__debug_log(f"{op}.{format} v{vd}, {f'v{vs2}, ' if op != 'vmv' else ''}{hex(vs1_rs1_imm)}{', v0.t' if not vm else ''}")
+
+                    vector_inst_counters[f'{op}.{format}'] += 1 # Stat
 
                 else:
                     raise ValueError(f'Unsupported funct3: 0b{funct3:3b}.')
@@ -134,6 +157,9 @@ class simulator:
 
                 base_addr = self.x_reg_file[rs1]
 
+                vector_write_counters[vd] += 1 # Stat
+                register_read_counters[rs1] += 1 # stat
+
                 if mop == 0b00: # unit-stride
                     read_vect = self.__vload_unit_stride(vd, width, base_addr, masks)
 
@@ -141,6 +167,8 @@ class simulator:
                     self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
                     self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
                     self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(read_vect, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
+
+                    vector_inst_counters[f'vle{width}.v'] += 1 # Stat
                 
                 elif mop == 0b01: # indexed-unordered
                     index_vect = vector(self.v_reg_file[lumop_rs2_vs2], elen=elen, vlen=vlen)
@@ -151,6 +179,9 @@ class simulator:
                     self.__debug_log(f'Source: indexes = {' '.join([elm.to_hex() for elm in index_vect.elms])}', indent=2)
                     self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
                     self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(read_vect, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
+
+                    vector_inst_counters[f'vluxei{width}.v'] += 1 # Stat
+                    vector_read_counters[lumop_rs2_vs2] += 1 # Stat
                     
                 elif mop == 0b10: # strided
                     stride = self.x_reg_file[lumop_rs2_vs2]
@@ -161,6 +192,9 @@ class simulator:
                     self.__debug_log(f'Source: stride  = {icb(stride, xlen).to_hex()}', indent=2)
                     self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
                     self.__debug_log(f"Result: {f'v{vd}':7} = {' '.join([icb(icb.get_bits(read_vect, elen * i, elen), elen).to_hex() for i in range(vlen // elen)])}", indent=2)
+
+                    vector_inst_counters[f'vlse{width}.v'] += 1 # Stat
+                    register_read_counters[lumop_rs2_vs2] += 1 # Stat
                     
                 else:
                     raise ValueError(f'Unsupported mop: 0b{mop:2b}.')
@@ -186,6 +220,9 @@ class simulator:
                 base_addr = self.x_reg_file[rs1]
                 write_vect = vector(self.v_reg_file[vs3], elen=elen, vlen=vlen)
 
+                vector_read_counters[vs3] += 1 # Stat
+                register_read_counters[rs1] += 1 # stat
+
                 if mop == 0b00: # unit-stride
                     dmem_changes = self.__vstore_unit_stride(write_vect, width, base_addr, masks)
 
@@ -194,27 +231,35 @@ class simulator:
                     self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
                     self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
                     self.__debug_log(f"Result: dmem    = {', '.join([f'[{icb(addr, addr_width).to_hex()}]: {icb(byte, 8).to_hex()}' for addr, byte in dmem_changes.items()])}", indent=2)
+                    
+                    vector_inst_counters[f'vse{width}.v'] += 1 # Stat
                 
                 elif mop == 0b01: # indexed-unordered
                     index_vect = vector(self.v_reg_file[sumop_rs2_vs2], elen=elen, vlen=vlen)
                     dmem_changes = self.__vstore_indexed_unordered(write_vect, width, base_addr, index_vect, masks)
 
-                    self.__debug_log(f'vsuxei{width}.v v{vs3}, (x{rs1}), v{lumop_rs2_vs2}{', v0.t' if not vm else ''}')
+                    self.__debug_log(f'vsuxei{width}.v v{vs3}, (x{rs1}), v{sumop_rs2_vs2}{', v0.t' if not vm else ''}')
                     self.__debug_log(f"Source: {f'v{vs3}':7} = {' '.join([elm.to_hex() for elm in write_vect.elms])}", indent=2)
                     self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
                     self.__debug_log(f'Source: indexes = {' '.join([elm.to_hex() for elm in index_vect.elms])}', indent=2)
                     self.__debug_log(f"Masks :         = {' '.join([icb(mask, elen).to_hex() for mask in masks])}", indent=2)
                     self.__debug_log(f"Result: dmem    = {', '.join([f'[{icb(addr, addr_width).to_hex()}]: {icb(byte, 8).to_hex()}' for addr, byte in dmem_changes.items()])}", indent=2)
+
+                    vector_inst_counters[f'vsuxei{width}.v'] += 1 # Stat
+                    vector_read_counters[sumop_rs2_vs2] += 1 # Stat
                 
                 elif mop == 0b10: # strided
                     stride = self.x_reg_file[sumop_rs2_vs2]
                     dmem_changes = self.__vstore_strided(write_vect, width, base_addr, stride, masks)
 
-                    self.__debug_log(f'vsse{width}.v v{vs3}, (x{rs1}), x{lumop_rs2_vs2}{', v0.t' if not vm else ''}')
+                    self.__debug_log(f'vsse{width}.v v{vs3}, (x{rs1}), x{sumop_rs2_vs2}{', v0.t' if not vm else ''}')
                     self.__debug_log(f"Source: {f'v{vs3}':7} = {' '.join([elm.to_hex() for elm in write_vect.elms])}", indent=2)
                     self.__debug_log(f'Source: base    = {icb(base_addr, xlen).to_hex()}', indent=2)
                     self.__debug_log(f'Source: stride  = {icb(stride, xlen).to_hex()}', indent=2)
                     self.__debug_log(f"Result: dmem    = {', '.join([f'[{icb(addr, addr_width).to_hex()}]: {icb(byte, 8).to_hex()}' for addr, byte in dmem_changes.items()])}", indent=2)
+
+                    vector_inst_counters[f'vsse{width}.v'] += 1 # Stat
+                    register_read_counters[sumop_rs2_vs2] += 1 # Stat
 
                 else:
                     raise ValueError(f'Unsupported mop: 0b{mop:2b}.')
@@ -235,6 +280,9 @@ class simulator:
 
                         self.__debug_log(f'lui x{rd}, {hex(imm20)}')
                         self.__debug_log(f"Result: {f"x{rd}":7} = {icb(result, xlen).to_hex()}", indent=2)
+                        
+                        scalar_inst_counters['lui'] += 1 # Stat
+                        register_write_counters[rd] += 1 # Stat
 
                     elif opcode == 0b0010111: # auipc
                         raise ValueError(f'Unsupported opcode: 0b{opcode:7b} (Not implemented yet).')
@@ -245,7 +293,12 @@ class simulator:
                     rs1 = icb.get_bits(inst, start=15, width=5)
                     imm12 = icb.get_bits(inst, start=20, width=12)
 
+                    register_write_counters[rd] += 1 # Stat
+                    register_read_counters[rs1] += 1 # Stat
+
                     if funct3 == 0b000: # addi
+                        scalar_inst_counters['addi'] += 1 # Stat
+
                         opnd2 = icb(self.x_reg_file[rs1], xlen)
                         opnd1 = icb(imm12, 12)
 
@@ -272,7 +325,14 @@ class simulator:
 
             self.__apply_changes(changes)
 
-        return changlog
+        return changlog, {
+            'vector_insts': vector_inst_counters,
+            'scalar_insts': scalar_inst_counters,
+            'vector_reads': vector_read_counters,
+            'vector_writes': vector_write_counters,
+            'register_reads': register_read_counters,
+            'register_writes': register_write_counters,
+        }
     
 
     def __vop(self, funct6: int, vect2: vector, vect1: vector, masks: list[int]):
