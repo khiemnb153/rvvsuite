@@ -52,7 +52,7 @@ class vector:
             raise ValueError('Mismatch in size between two vector')
 
         result_vect = [
-            other_elm.__sub__(self_elm) if mask else icb(0, self.elen)
+            other_elm.__sub__(self_elm.__sext__(other_elm.width)) if mask else icb(0, self.elen)
             for self_elm, other_elm, mask in zip(self.elms, other.elms, masks)
         ]
 
